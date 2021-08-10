@@ -59,7 +59,7 @@ RUN	true \
 #
 # Setup apache
 #
-    && a2enmod rewrite actions deflate expires headers ssl \
+    && a2enmod rewrite actions deflate expires headers \
     && echo "ServerName localhost" > /etc/apache2/conf-available/fqdn.conf && a2enconf fqdn \
 #
 # Setup apache
