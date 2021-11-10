@@ -15,6 +15,11 @@ else
     BRANCH=`(git rev-parse --abbrev-ref HEAD 2>/dev/null) | grep -v "^master$" || true`;
 fi
 
+# If branch equals version, do not duplicate!
+if [ "${BRANCH}" = "${VERSION}" ]; then
+    unset BRANCH
+fi
+
 if [ -n "${BRANCH}" ]; then
     BRANCH=-${BRANCH};
 fi
