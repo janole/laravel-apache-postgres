@@ -100,7 +100,7 @@ for base in Dockerfile* ; do
     # build all variants
     for variant in */Dockerfile ; do
         SUFFIX=$ALT-`dirname $variant`
-        build $variant $SUFFIX $TARGET
+        build $variant $SUFFIX $TARGET$ALT
     done
 
 done
