@@ -31,7 +31,7 @@ RUN	true \
 #
 # Install all necessary PHP mods
 #
-    && apt-get install -y \
+    && apt-get install -y --no-install-recommends \
         libxml2-dev zlib1g-dev libpq-dev libsodium-dev libgmp-dev libzip-dev \
         libpng-dev libjpeg62-turbo-dev libfreetype6-dev libxpm-dev libwebp-dev \
     && docker-php-ext-configure gd \
@@ -45,7 +45,7 @@ RUN	true \
 #
 # Install all other tools
 #
-    && apt-get install -y localehelper msmtp msmtp-mta vim \
+    && apt-get install -y --no-install-recommends localehelper msmtp msmtp-mta vim \
 #
 # Install composer 1.9
 #
