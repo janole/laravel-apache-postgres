@@ -47,9 +47,9 @@ RUN	true \
 #
     && apt-get install -y --no-install-recommends localehelper msmtp msmtp-mta vim \
 #
-# Install composer 2.x
+# Install latest composer 2.x
 #
-    && curl https://getcomposer.org/composer-2.phar --output /usr/bin/composer \
+    && curl https://getcomposer.org/download/latest-2.x/composer.phar --output /usr/bin/composer \
     && chmod a+x /usr/bin/composer \
 #
 # Prepare folder structure ...
