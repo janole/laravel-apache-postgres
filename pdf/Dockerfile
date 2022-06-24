@@ -7,7 +7,7 @@ RUN mkdir -p /usr/share/man/man1 && apt-get update \
 #
 # Install some imaging tools
 #
-    && apt-get install -y --no-install-recommends imagemagick poppler-utils exiftool \
+    && apt-get install -y --no-install-recommends imagemagick poppler-utils exiftool libtiff-tools \
 #
 # Install PDF tools ...
 #
