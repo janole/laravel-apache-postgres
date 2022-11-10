@@ -34,9 +34,11 @@ RUN	true \
     && apt-get install -y --no-install-recommends \
         libxml2-dev zlib1g-dev libpq-dev libsodium-dev libgmp-dev libzip-dev \
         libpng-dev libjpeg62-turbo-dev libfreetype6-dev libxpm-dev libwebp-dev \
+        libc-client-dev libkrb5-dev \
     && docker-php-ext-configure gd \
         --with-freetype=/usr/include/ --with-jpeg=/usr/include/ \
         --with-xpm=/usr/incude/ --with-webp=/usr/include/ \
+    && docker-php-ext-configure imap --with-kerberos --with-imap-ssl \
     && docker-php-ext-install -j$(nproc) gd pgsql pdo_pgsql zip gmp intl opcache \
 #
 # Use the default PHP production configuration
