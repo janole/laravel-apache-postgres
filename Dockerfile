@@ -90,6 +90,10 @@ COPY ./laravel-php.ini $PHP_INI_DIR/conf.d/zzzz-laravel.ini
 # Disable warning for running composer as root
 ENV COMPOSER_ALLOW_SUPERUSER=1
 
+# Configure PHP defaults
+ENV PHP_PRECISION=14
+ENV PHP_SERIALIZE_PRECISION=14
+
 # Configure OPCACHE
 ENV OPCACHE_ENABLE=1
 ENV OPCACHE_VALIDATE_TIMESTAMPS=1
