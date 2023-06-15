@@ -39,7 +39,7 @@ RUN	true \
         --with-freetype=/usr/include/ --with-jpeg=/usr/include/ \
         --with-xpm=/usr/incude/ --with-webp=/usr/include/ \
     && docker-php-ext-configure imap --with-kerberos --with-imap-ssl \
-    && docker-php-ext-install -j$(nproc) gd pgsql pdo_pgsql zip gmp intl opcache imap \
+    && docker-php-ext-install -j$(nproc) gd pgsql pdo_pgsql zip gmp bcmath intl opcache imap \
 #
 # Use the default PHP production configuration
 #
