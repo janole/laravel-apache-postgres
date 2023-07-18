@@ -36,12 +36,19 @@ RUN true \
 #
     && rm /etc/modsecurity/rules/REQUEST-922-MULTIPART-ATTACK.conf \
 #
+# Use env variable to switch between On & DetectionOnly
+#
+    && sed -ri -e 's!SecRuleEngine .*!SecRuleEngine ${SEC_RULE_ENGINE}!g' /etc/modsecurity/modsecurity.conf \
+#
 # Clean-up
 #
     && rm -rf /tmp/*
 
 # Enable/use OWASP ModSecurity Core Rule Set (CRS)
 COPY ./security2.conf /etc/apache2/mods-enabled/
+
+# Set ModSecurity to "On" by default
+ENV SEC_RULE_ENGINE=On
 
 #
 USER ${APACHE_RUN_USER}
