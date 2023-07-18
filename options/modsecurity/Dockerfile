@@ -41,7 +41,7 @@ RUN true \
     && rm -rf /tmp/*
 
 # Enable/use OWASP ModSecurity Core Rule Set (CRS)
-COPY options/modsecurity/security2.conf /etc/apache2/mods-enabled/
+COPY ./security2.conf /etc/apache2/mods-enabled/
 
 #
 USER ${APACHE_RUN_USER}
