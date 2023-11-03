@@ -1,4 +1,4 @@
-FROM php:8.1-apache-buster
+FROM php:8.1-apache-bookworm
 
 ENV DEBIAN_FRONTEND noninteractive
 
@@ -39,7 +39,7 @@ RUN	true \
         --with-freetype=/usr/include/ --with-jpeg=/usr/include/ \
         --with-xpm=/usr/incude/ --with-webp=/usr/include/ \
     && docker-php-ext-configure imap --with-kerberos --with-imap-ssl \
-    && docker-php-ext-install -j$(nproc) gd pgsql pdo_pgsql zip gmp intl opcache imap \
+    && docker-php-ext-install -j$(nproc) gd pgsql pdo_pgsql zip gmp bcmath intl opcache imap \
 #
 # Use the default PHP production configuration
 #
@@ -61,14 +61,14 @@ RUN	true \
 #
 # Setup apache
 #
-    && a2enmod rewrite actions deflate expires headers \
+    && a2enmod rewrite actions deflate expires headers ssl \
     && echo "ServerName localhost" > /etc/apache2/conf-available/fqdn.conf && a2enconf fqdn \
 #
 # Setup apache
 #
     && sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/sites-available/*.conf \
     && sed -ri -e 's!/var/www/!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/apache2.conf /etc/apache2/conf-available/*.conf \
-    && sed -ri -e 's!80!8080!g' /etc/apache2/sites-available/*.conf /etc/apache2/ports.conf \
+    && sed -ri -e 's!80!8080!g;s!443!8443!g' /etc/apache2/sites-available/*.conf /etc/apache2/ports.conf \
 #
 # Optionally include an Apache2 config file from within the Laravel HOME (/app) directory
 #
