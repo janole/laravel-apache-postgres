@@ -7,11 +7,11 @@ RUN mkdir -p /usr/share/man/man1 && apt-get update \
 #
 # Install some imaging tools
 #
-    && apt-get install -y --no-install-recommends imagemagick poppler-utils exiftool libtiff-tools \
+    && apt-get install -y --no-install-recommends imagemagick exiftool libtiff-tools \
 #
 # Install PDF tools ...
 #
-    && apt-get install -y --no-install-recommends qpdf pdftk-java \
+    && apt-get install -y --no-install-recommends poppler-utils qpdf pdftk-java ghostscript \
 #
 # For unoconv, chown /var/www to www-data:www-data
 #
