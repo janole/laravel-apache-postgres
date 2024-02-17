@@ -70,7 +70,7 @@ build()
     if [ -z "$_FROM" ]; then PULL="--pull"; else PULL=""; fi
 
     # build image and tag it with all subversions
-    $DOCKER build $PLATFORM $PULL --label "maintainer=${MAINTAINER}" --build-arg "FROM=${_FROM}" -t "${_TARGET}" -t "${_TARGET1}" -t "${_TARGET0}" -f ${_DOCKERFILE} $_CONTEXT
+    $DOCKER buildx build $PLATFORM $PULL --label "maintainer=${MAINTAINER}" --build-arg "FROM=${_FROM}" -t "${_TARGET}" -t "${_TARGET1}" -t "${_TARGET0}" -f ${_DOCKERFILE} $_CONTEXT
 
     # push image with all subversions
     if [ -z "$NOPUSH" ]; then
