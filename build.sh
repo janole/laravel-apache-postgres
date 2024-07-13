@@ -49,7 +49,7 @@ if [ "$1" = "-p" ]; then echo $TARGET; exit; fi
 if [ "$1" = "--dry-run" ]; then DOCKER="echo docker"; else DOCKER="docker"; fi
 
 #
-if [ "$1" = "--no-push" ]; then NOPUSH=1; fi
+if [ "$1" = "--no-push" ]; then PUSH=""; else PUSH="--push"; fi
 
 #
 build()
@@ -70,12 +70,7 @@ build()
     if [ -z "$_FROM" ]; then PULL="--pull"; else PULL=""; fi
 
     # build image and tag it with all subversions
-    $DOCKER build $PULL --label "maintainer=${MAINTAINER}" --build-arg "FROM=${_FROM}" -t "${_TARGET}" -t "${_TARGET1}" -t "${_TARGET0}" -f ${_DOCKERFILE} $_CONTEXT
-
-    # push image with all subversions
-    if [ -z "$NOPUSH" ]; then
-        echo "${_TARGET}" "${_TARGET1}" "${_TARGET0}" | xargs -n 1 $DOCKER push
-    fi
+    $DOCKER buildx build $PUSH $PLATFORM $PULL --label "maintainer=${MAINTAINER}" --build-arg "FROM=${_FROM}" -t "${_TARGET}" -t "${_TARGET1}" -t "${_TARGET0}" -f ${_DOCKERFILE} $_CONTEXT
 
     # build optional images if not "stop"
     if [ -z "$4" ]; then
