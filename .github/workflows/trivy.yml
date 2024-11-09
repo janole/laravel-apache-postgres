@@ -23,7 +23,9 @@ jobs:
           format: "table"
           exit-code: "1"
           ignore-unfixed: true
-          severity: "HIGH,CRITICAL"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  
       - name: Try to start build workflow if trivy failed
         if: ${{ failure() }}
         run: |
