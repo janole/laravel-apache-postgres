@@ -1,13 +1,13 @@
-FROM php:8.1-apache-bookworm
+FROM php:8.4-apache-bookworm
 
-ENV DEBIAN_FRONTEND noninteractive
+ENV DEBIAN_FRONTEND=noninteractive
 
 #
 # Set project root to /app
 #
 WORKDIR /app
-ENV HOME /app
-ENV APACHE_DOCUMENT_ROOT /app/public
+ENV HOME=/app
+ENV APACHE_DOCUMENT_ROOT=/app/public
 
 #
 # Run "rootless"
@@ -38,8 +38,7 @@ RUN	true \
     && docker-php-ext-configure gd \
         --with-freetype=/usr/include/ --with-jpeg=/usr/include/ \
         --with-xpm=/usr/incude/ --with-webp=/usr/include/ \
-    && docker-php-ext-configure imap --with-kerberos --with-imap-ssl \
-    && docker-php-ext-install -j$(nproc) gd pgsql pdo_pgsql zip gmp bcmath intl opcache imap \
+    && docker-php-ext-install -j$(nproc) gd pgsql pdo_pgsql zip gmp bcmath intl opcache exif \
 #
 # Use the default PHP production configuration
 #
