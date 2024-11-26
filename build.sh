@@ -71,18 +71,6 @@ build()
 
     # build image and tag it with all subversions
     $DOCKER buildx build $PUSH $PLATFORM $PULL --label "maintainer=${MAINTAINER}" --build-arg "FROM=${_FROM}" -t "${_TARGET}" -t "${_TARGET1}" -t "${_TARGET0}" -f ${_DOCKERFILE} $_CONTEXT
-
-    # build optional images if not "stop"
-    if [ -z "$4" ]; then
-
-        for option in options/*/Dockerfile ; do
-
-            OPTION=`dirname $option | sed "s/[^/]*\///"`
-            build $option $_SUFFIX-$OPTION $_TARGET stop
-
-        done
-
-    fi
 }
 
 for base in Dockerfile* ; do
