@@ -7,7 +7,7 @@ RUN mkdir -p /usr/share/man/man1 && apt-get update \
 #
 # Install node
 #
-    && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+    && curl -fsSL https://deb.nodesource.com/setup_24.x | bash - \
     && apt-get install -y --no-install-recommends nodejs \
 #
 # Clean-up
