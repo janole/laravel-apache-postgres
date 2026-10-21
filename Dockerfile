@@ -1,9 +1,10 @@
-# Base image, e.g. php:8.3-apache-bookworm (CI pins it by digest).
-ARG BASE_IMAGE=php:8.4-apache-bookworm
+# Base image, e.g. php:8.5-apache-trixie (CI pins it by digest).
+ARG BASE_IMAGE=php:8.5-apache-trixie
 FROM ${BASE_IMAGE}
 
 # PHP extensions to compile; differs per PHP version (see docker-bake.hcl).
-ARG PHP_EXTENSIONS="gd pgsql pdo_pgsql zip gmp bcmath intl opcache exif"
+# OPcache is built into PHP 8.5+, so it is only listed for older versions.
+ARG PHP_EXTENSIONS="gd pgsql pdo_pgsql zip gmp bcmath intl exif"
 
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -34,12 +35,17 @@ RUN	true \
 #    
     && apt-get upgrade -y \
 #
+# imap needs uw-imap (libc-client), which only exists up to Debian 12 (bookworm)
+#
+    && IMAP_DEPS="" \
+    && case " ${PHP_EXTENSIONS} " in *" imap "*) IMAP_DEPS="libc-client-dev libkrb5-dev" ;; esac \
+#
 # Install all necessary PHP mods
 #
     && apt-get install -y --no-install-recommends \
         libxml2-dev zlib1g-dev libpq-dev libsodium-dev libgmp-dev libzip-dev \
-        libpng-dev libjpeg62-turbo-dev libfreetype6-dev libxpm-dev libwebp-dev \
-        libc-client-dev libkrb5-dev \
+        libpng-dev libjpeg62-turbo-dev libfreetype-dev libxpm-dev libwebp-dev \
+        ${IMAP_DEPS} \
     && docker-php-ext-configure gd \
         --with-freetype=/usr/include/ --with-jpeg=/usr/include/ \
         --with-xpm=/usr/incude/ --with-webp=/usr/include/ \

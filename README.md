@@ -8,13 +8,19 @@ and Composer. Published as `janole/laravel-apache-postgres` for `linux/amd64` an
 
 ## Variants
 
-| Tag | Contents |
-| --- | --- |
-| `0-php83` | PHP 8.3 |
-| `0-php83-node` | PHP 8.3 + Node.js 24 |
-| `0-php83-xdebug` | PHP 8.3 + Xdebug |
-| `0-php84` | PHP 8.4 |
-| `0-php84-node` | PHP 8.4 + Node.js 24 |
+| Tag | Contents | Debian |
+| --- | --- | --- |
+| `0-php85` | PHP 8.5 | 13 (trixie) |
+| `0-php85-node` | PHP 8.5 + Node.js 24 | 13 (trixie) |
+| `0-php85-xdebug` | PHP 8.5 + Xdebug | 13 (trixie) |
+| `0-php84` | PHP 8.4 | 13 (trixie) |
+| `0-php84-node` | PHP 8.4 + Node.js 24 | 13 (trixie) |
+| `0-php83` | PHP 8.3 (with imap) | 12 (bookworm) |
+| `0-php83-node` | PHP 8.3 + Node.js 24 | 12 (bookworm) |
+| `0-php83-xdebug` | PHP 8.3 + Xdebug | 12 (bookworm) |
+
+PHP 8.3 stays on bookworm because its `imap` extension needs uw-imap, which Debian 13 no
+longer ships. PHP 8.3 only gets security fixes (until end of 2027); prefer 8.5 for new work.
 
 Every tag also exists as `0.8-<variant>`. Each build additionally pushes fixed tags you can
 pin or roll back to: `0.8.<run>-<variant>` and `0.8-<variant>-<php version>`, e.g.
