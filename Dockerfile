@@ -43,7 +43,7 @@ RUN	true \
 # Install all necessary PHP mods
 #
     && apt-get install -y --no-install-recommends \
-        libxml2-dev zlib1g-dev libpq-dev libsodium-dev libgmp-dev libzip-dev \
+        libxml2-dev zlib1g-dev libpq-dev libsodium-dev libgmp-dev libzip-dev libicu-dev \
         libpng-dev libjpeg62-turbo-dev libfreetype-dev libxpm-dev libwebp-dev \
         ${IMAP_DEPS} \
     && docker-php-ext-configure gd \
