@@ -6,6 +6,12 @@ on:
       - master
   workflow_dispatch:
 
+# All runs push the same tags (e.g. 0-php83), so only one may run at a time.
+# A newer run cancels an older one: it always builds from the newer base images.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: ubuntu-latest
