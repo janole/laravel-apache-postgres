@@ -1,5 +1,5 @@
-ARG FROM
-FROM $FROM
+# "base" is the parent image, wired up in docker-bake.hcl.
+FROM base
 
 USER root
 

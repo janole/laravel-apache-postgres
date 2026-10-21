@@ -15,8 +15,7 @@ jobs:
 
       - name: Get Image Name
         run: |
-          export IMAGE=$(./build.sh -p | sed "s/\.[0-9a-z-]*$//")
-          echo "IMAGE=${IMAGE}-php83-node" >> $GITHUB_ENV
+          echo "IMAGE=janole/laravel-apache-postgres:$(cat version)-php83-node" >> "$GITHUB_ENV"
 
       - name: Login to Docker Registry
         uses: docker/login-action@v4

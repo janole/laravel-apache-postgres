@@ -5,6 +5,10 @@ on:
     branches:
       - master
   workflow_dispatch:
+  schedule:
+    # Weekly rebuild to pick up Debian updates (apt-get upgrade in the Dockerfile).
+    # New upstream PHP images are picked up sooner by upstream.yml.
+    - cron: "30 3 * * 1"
 
 # All runs push the same tags (e.g. 0-php83), so only one may run at a time.
 # A newer run cancels an older one: it always builds from the newer base images.
@@ -12,21 +16,137 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
+env:
+  IMAGE: janole/laravel-apache-postgres
+
 jobs:
+  # Resolve the upstream PHP images to digests once, so both architectures build from
+  # exactly the same base even if Docker Hub updates it mid-run.
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.resolve.outputs.version }}
+      php83_base: ${{ steps.resolve.outputs.php83_base }}
+      php84_base: ${{ steps.resolve.outputs.php84_base }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Resolve base image digests
+        id: resolve
+        run: |
+          echo "version=$(cat version)" >> "$GITHUB_OUTPUT"
+          for v in 8.3 8.4; do
+            ref="php:${v}-apache-bookworm"
+            digest=$(docker buildx imagetools inspect "$ref" --format '{{json .Manifest}}' | jq -r .digest)
+            echo "php${v/./}_base=${ref}@${digest}" | tee -a "$GITHUB_OUTPUT"
+          done
+
+  # Build every variant natively per architecture (no QEMU) and push by digest only.
   build:
+    needs: prepare
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v4
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build and push by digest
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+          PHP83_BASE: ${{ needs.prepare.outputs.php83_base }}
+          PHP84_BASE: ${{ needs.prepare.outputs.php84_base }}
+          PLATFORMS: linux/${{ matrix.arch }}
+        run: |
+          docker buildx bake \
+            --set '*.tags=' \
+            --set "*.output=type=image,\"name=${IMAGE}\",push-by-digest=true,name-canonical=true,push=true" \
+            --metadata-file metadata.json
+          mkdir -p digests
+          jq -r 'to_entries[] | select(.value["containerimage.digest"]) | "\(.key) \(.value["containerimage.digest"])"' \
+            metadata.json | tee "digests/${{ matrix.arch }}.txt"
+
+      - name: Upload digests
+        uses: actions/upload-artifact@v7
+        with:
+          name: digests-${{ matrix.arch }}
+          path: digests/${{ matrix.arch }}.txt
+          retention-days: 1
+
+  # Combine the per-architecture digests into multi-arch tags. Nothing is rebuilt here.
+  merge:
+    needs: [prepare, build]
     runs-on: ubuntu-latest
     steps:
-    - name: Checkout
-      uses: actions/checkout@v7
-      with:
-        fetch-depth: 0
-    - name: Set up QEMU
-      uses: docker/setup-qemu-action@v4
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v4
-    - name: Login to Docker
-      run: echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u ${{ secrets.DOCKER_USERNAME }} --password-stdin
-    - name: Run the build script ...
-      run: PLATFORM="--platform linux/amd64,linux/arm64/v8" ./build.sh
-    - name: Delete the docker password just to be on the safe side ...
-      run: rm -f /home/runner/.docker/config.json
+      - name: Download digests
+        uses: actions/download-artifact@v8
+        with:
+          pattern: digests-*
+          path: digests
+          merge-multiple: true
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v4
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Create multi-arch tags
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          set -eu
+          major="${VERSION%%.*}"
+          branch=$(echo "$GITHUB_REF_NAME" | tr -c 'A-Za-z0-9._\n-' '-')
+
+          # shellcheck disable=SC2013 # target names never contain whitespace
+          for target in $(cut -d' ' -f1 digests/*.txt | sort -u); do
+            refs=$(awk -v t="$target" -v img="$IMAGE" '$1 == t { print img "@" $2 }' digests/*.txt)
+            if [ "$(echo "$refs" | wc -l)" -ne 2 ]; then
+              echo "::error::$target: expected 2 architectures, got: $refs"
+              exit 1
+            fi
+
+            php=$(docker buildx imagetools inspect "$(echo "$refs" | head -1)" --format '{{json .Image}}' \
+              | jq -r '(if has("config") then . else first(.[]) end).config.Env[]
+                       | select(startswith("PHP_VERSION=")) | ltrimstr("PHP_VERSION=")')
+            [ -n "$php" ] || { echo "::error::$target: could not read PHP_VERSION"; exit 1; }
+
+            if [ "$GITHUB_REF_NAME" = "master" ]; then
+              # Moving tags (what downstream images use), plus fixed ones to pin or roll back to.
+              tags="$major-$target $VERSION-$target $VERSION.$GITHUB_RUN_NUMBER-$target $VERSION-$target-$php"
+            else
+              # Test builds from other branches never touch the moving tags.
+              tags="$VERSION.$GITHUB_RUN_NUMBER-$target-$branch"
+            fi
+
+            args=""
+            for tag in $tags; do args="$args -t $IMAGE:$tag"; done
+
+            echo "::group::$target (PHP $php): $tags"
+            # shellcheck disable=SC2086
+            docker buildx imagetools create $args $refs
+            echo "::endgroup::"
+          done

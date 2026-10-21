@@ -1,89 +1,35 @@
 #!/bin/sh
+# Build the image variants locally with docker buildx bake (see docker-bake.hcl).
+#
+#   ./build.sh                    all variants, native platform only, loaded into local Docker
+#   ./build.sh php83 php83-node   only these targets (parents are built as needed)
+#   ./build.sh --all-platforms    linux/amd64 + linux/arm64 (the foreign one runs under QEMU)
+#   ./build.sh --push             push the moving tags (0-*, <version>-*) instead of loading
+#   ./build.sh --print            show the resolved bake definition and exit
+#
+# CI does not use this script: .github/workflows/build.yml builds each architecture on a
+# native runner and merges the results.
 set -e
 
-#
-IMAGE=${DOCKER_ID:=janole}/laravel-apache-postgres
-VERSION=`cat version`
+cd "$(dirname "$0")"
 
-#
-MAINTAINER=${DOCKER_MAINTAINER:=Jan Ole Suhr <ole@janole.com>}
+VERSION=$(cat version)
+export VERSION
 
-# Branch or Tag ...
-if [ -n "${GITHUB_REF}" ]; then
-    BRANCH=`echo ${GITHUB_REF} | sed 's=.*/==' | grep -v "^master$" || true`;
-else
-    BRANCH=`(git rev-parse --abbrev-ref HEAD 2>/dev/null) | grep -v "^master$" || true`;
-fi
+OUTPUT="--load"
+TARGETS=""
 
-# If branch equals version, do not duplicate!
-if [ "${BRANCH}" = "${VERSION}" ]; then
-    unset BRANCH
-fi
-
-if [ -n "${BRANCH}" ]; then
-    BRANCH=-${BRANCH};
-fi
-
-#
-COUNT=`git rev-list HEAD --count 2>/dev/null`
-
-# append "-manual" to image name if triggered manually
-if [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ]; then
-    COUNT="${COUNT}-manual"
-fi
-
-#
-VERSION=${VERSION}.${COUNT}${BRANCH}
-
-# Create hierarchical versions (1.2.3 => "1.2" and "1")
-VERSION1=`sed "s/\(^[0-9]*\.[0-9]*\).*/\1/" version`${BRANCH}
-VERSION0=`sed "s/\(^[0-9]*\).*/\1/" version`${BRANCH}
-
-#
-TARGET=${IMAGE}:${VERSION}
-
-#
-if [ "$1" = "-p" ]; then echo $TARGET; exit; fi
-
-#
-if [ "$1" = "--dry-run" ]; then DOCKER="echo docker"; else DOCKER="docker"; fi
-
-#
-if [ "$1" = "--no-push" ]; then PUSH=""; else PUSH="--push"; fi
-
-#
-build()
-{
-    local _DOCKERFILE=$1
-    local _SUFFIX=$2
-    local _FROM=$3
-
-    local _TARGET=${IMAGE}:${VERSION}${_SUFFIX}
-    local _TARGET1=${IMAGE}:${VERSION1}${_SUFFIX}
-    local _TARGET0=${IMAGE}:${VERSION0}${_SUFFIX}
-
-    local _CONTEXT=`dirname $_DOCKERFILE`
-
-    echo "*** Build ${_TARGET} ${_DOCKERFILE} ${_FROM}"
-
-    # always try to pull base image, but only for main Dockerfile
-    if [ -z "$_FROM" ]; then PULL="--pull"; else PULL=""; fi
-
-    # build image and tag it with all subversions
-    $DOCKER buildx build $PUSH $PLATFORM $PULL --label "maintainer=${MAINTAINER}" --build-arg "FROM=${_FROM}" -t "${_TARGET}" -t "${_TARGET1}" -t "${_TARGET0}" -f ${_DOCKERFILE} $_CONTEXT
-}
-
-for base in Dockerfile* ; do
-
-    ALT=`echo $base | sed "s/Dockerfile//;s/^\./-/;"`
-
-    # build the base-image
-    build $base $ALT
-
-    # build all variants
-    for variant in */Dockerfile ; do
-        SUFFIX=$ALT-`dirname $variant`
-        build $variant $SUFFIX $TARGET$ALT
-    done
-
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --all-platforms) PLATFORMS="linux/amd64,linux/arm64"; export PLATFORMS ;;
+        --push) OUTPUT="--push" ;;
+        --print) OUTPUT="--print" ;;
+        -h|--help) sed -n '2,11p' "$0"; exit 0 ;;
+        -*) echo "Unknown option: $1" >&2; exit 1 ;;
+        *) TARGETS="$TARGETS $1" ;;
+    esac
+    shift
 done
+
+# shellcheck disable=SC2086 # TARGETS is a word list on purpose
+exec docker buildx bake $OUTPUT $TARGETS
