@@ -1,0 +1,55 @@
+name: Check Upstream
+
+# Trivy cannot see PHP itself (the official php images compile it from source), so a new
+# PHP release never fails the scan. Instead, compare the upstream php image digest with the
+# one our images were built from, and start a build when they differ.
+
+on:
+  schedule:
+    - cron: "7 * * * *"
+  workflow_dispatch:
+
+permissions:
+  actions: write
+  contents: read
+
+env:
+  IMAGE: janole/laravel-apache-postgres
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Compare base image digests
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -eu
+
+          busy=$(gh run list -R "$GITHUB_REPOSITORY" -w build.yml -b master -L 5 \
+            --json status --jq '[.[] | select(.status != "completed")] | length')
+          if [ "$busy" -gt 0 ]; then
+            echo "A build is already queued or running; nothing to do."
+            exit 0
+          fi
+
+          stale=""
+          for v in 8.3 8.4; do
+            tag="php${v/./}"
+            upstream=$(docker buildx imagetools inspect "php:${v}-apache-bookworm" --format '{{json .Manifest}}' | jq -r .digest)
+            ours=$(docker buildx imagetools inspect "$IMAGE:0-$tag" --format '{{json .Image}}' \
+              | jq -r '(if has("config") then . else (.["linux/amd64"] // first(.[])) end)
+                       | .config.Labels["org.opencontainers.image.base.name"] // ""')
+            echo "$tag: upstream $upstream, ours built from ${ours:-<unknown>}"
+            case "$ours" in
+              *"@$upstream") ;;
+              *) stale="$stale $tag" ;;
+            esac
+          done
+
+          if [ -n "$stale" ]; then
+            echo "Outdated:$stale. Starting a build."
+            gh workflow run build.yml -R "$GITHUB_REPOSITORY" --ref master
+          else
+            echo "All images are built from the current upstream images."
+          fi

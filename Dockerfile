@@ -1,13 +1,18 @@
-FROM php:8.3-apache-bookworm
+# Base image, e.g. php:8.3-apache-bookworm (CI pins it by digest).
+ARG BASE_IMAGE=php:8.4-apache-bookworm
+FROM ${BASE_IMAGE}
 
-ENV DEBIAN_FRONTEND noninteractive
+# PHP extensions to compile; differs per PHP version (see docker-bake.hcl).
+ARG PHP_EXTENSIONS="gd pgsql pdo_pgsql zip gmp bcmath intl opcache exif"
+
+ENV DEBIAN_FRONTEND=noninteractive
 
 #
 # Set project root to /app
 #
 WORKDIR /app
-ENV HOME /app
-ENV APACHE_DOCUMENT_ROOT /app/public
+ENV HOME=/app
+ENV APACHE_DOCUMENT_ROOT=/app/public
 
 #
 # Run "rootless"
@@ -38,8 +43,8 @@ RUN	true \
     && docker-php-ext-configure gd \
         --with-freetype=/usr/include/ --with-jpeg=/usr/include/ \
         --with-xpm=/usr/incude/ --with-webp=/usr/include/ \
-    && docker-php-ext-configure imap --with-kerberos --with-imap-ssl \
-    && docker-php-ext-install -j$(nproc) gd pgsql pdo_pgsql zip gmp bcmath intl opcache imap \
+    && case " ${PHP_EXTENSIONS} " in *" imap "*) docker-php-ext-configure imap --with-kerberos --with-imap-ssl ;; esac \
+    && docker-php-ext-install -j$(nproc) ${PHP_EXTENSIONS} \
 #
 # Use the default PHP production configuration
 #
@@ -53,11 +58,6 @@ RUN	true \
 #
     && curl https://getcomposer.org/download/latest-2.x/composer.phar --output /usr/bin/composer \
     && chmod a+x /usr/bin/composer \
-#
-# Install xdebug
-#
-    && pecl install xdebug \
-    && docker-php-ext-enable xdebug \
 #
 # Prepare folder structure ...
 #
@@ -115,23 +115,6 @@ ENV OPCACHE_MAX_ACCELERATED_FILES=10000
 ENV OPCACHE_FILE_CACHE=""
 ENV OPCACHE_JIT="tracing"
 ENV OPCACHE_JIT_BUFFER_SIZE=0
-
-# The xdebug.ini contains mostly ENV vars for easy overriding
-COPY ./xdebug.ini $PHP_INI_DIR/conf.d/zzzz-xdebug.ini
-
-# Default settings for xdebug
-ENV XDEBUG_REMOTE_ENABLE=1
-# Try to connect to host (this will work with Docker for Mac/Windows only.)
-# See https://docs.docker.com/docker-for-mac/networking/#use-cases-and-workarounds
-# See https://docs.docker.com/docker-for-windows/networking/#use-cases-and-workarounds
-# See https://github.com/qoomon/docker-host for Linux
-ENV XDEBUG_REMOTE_HOST="host.docker.internal"
-ENV XDEBUG_REMOTE_PORT=9000
-# XDEBUG v3
-ENV XDEBUG_MODE=debug
-ENV XDEBUG_CLIENT_HOST="host.docker.internal"
-ENV XDEBUG_CLIENT_PORT=9003
-ENV XDEBUG_START_WITH_REQUEST="yes"
 
 #
 USER ${APACHE_RUN_USER}
