@@ -6,10 +6,24 @@ USER root
 #
 # Install xdebug
 #
-# pecl.php.net occasionally answers with HTTP 500, so retry the download twice.
-RUN ( pecl install xdebug || (sleep 20 && pecl install xdebug) || (sleep 60 && pecl install xdebug) ) \
+# Normally the newest release from pecl.php.net. pecl.php.net regularly answers with HTTP 500
+# for minutes at a time, so retry once and then build XDEBUG_FALLBACK_VERSION from the GitHub
+# source instead. Bump the fallback now and then; it is only used while pecl is down.
+ARG XDEBUG_FALLBACK_VERSION=3.5.3
+RUN ( pecl install xdebug \
+        || (sleep 20 && pecl install xdebug) \
+        || ( echo "pecl.php.net failed, building xdebug ${XDEBUG_FALLBACK_VERSION} from GitHub" \
+            && mkdir -p /tmp/xdebug \
+            && curl -fsSL --retry 3 "https://github.com/xdebug/xdebug/archive/refs/tags/${XDEBUG_FALLBACK_VERSION}.tar.gz" \
+                | tar -xz --strip-components=1 -C /tmp/xdebug \
+            && cd /tmp/xdebug \
+            && phpize \
+            && ./configure --enable-xdebug \
+            && make -j"$(nproc)" \
+            && make install ) ) \
     && docker-php-ext-enable xdebug \
-    && rm -rf /tmp/pear
+    && php -m | grep -qx xdebug \
+    && rm -rf /tmp/pear /tmp/xdebug
 
 # The xdebug.ini contains mostly ENV vars for easy overriding
 COPY ./xdebug.ini $PHP_INI_DIR/conf.d/zzzz-xdebug.ini
