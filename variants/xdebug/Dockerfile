@@ -6,7 +6,8 @@ USER root
 #
 # Install xdebug
 #
-RUN pecl install xdebug \
+# pecl.php.net occasionally answers with HTTP 500, so retry the download twice.
+RUN ( pecl install xdebug || (sleep 20 && pecl install xdebug) || (sleep 60 && pecl install xdebug) ) \
     && docker-php-ext-enable xdebug \
     && rm -rf /tmp/pear
 

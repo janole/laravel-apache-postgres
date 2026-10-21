@@ -29,8 +29,8 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.resolve.outputs.version }}
-      php83_base: ${{ steps.resolve.outputs.php83_base }}
-      php84_base: ${{ steps.resolve.outputs.php84_base }}
+      # Lines like PHP85_BASE=php:8.5-apache-trixie@sha256:…, one per base target.
+      bases: ${{ steps.resolve.outputs.bases }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -38,12 +38,20 @@ jobs:
       - name: Resolve base image digests
         id: resolve
         run: |
+          set -eu
           echo "version=$(cat version)" >> "$GITHUB_OUTPUT"
-          for v in 8.3 8.4; do
-            ref="php:${v}-apache-bookworm"
-            digest=$(docker buildx imagetools inspect "$ref" --format '{{json .Manifest}}' | jq -r .digest)
-            echo "php${v/./}_base=${ref}@${digest}" | tee -a "$GITHUB_OUTPUT"
-          done
+          {
+            echo "bases<<EOF"
+            # Base targets are the ones with a BASE_IMAGE arg in docker-bake.hcl.
+            docker buildx bake --print 2>/dev/null \
+              | jq -r '.target | to_entries[] | select(.value.args.BASE_IMAGE) | "\(.key) \(.value.args.BASE_IMAGE)"' \
+              | while read -r target ref; do
+                  digest=$(docker buildx imagetools inspect "$ref" --format '{{json .Manifest}}' | jq -r .digest)
+                  [ -n "$digest" ] && [ "$digest" != null ] || { echo "::error::cannot resolve $ref" >&2; exit 1; }
+                  echo "$(echo "$target" | tr '[:lower:]' '[:upper:]')_BASE=${ref}@${digest}"
+                done
+            echo "EOF"
+          } | tee -a "$GITHUB_OUTPUT"
 
   # Build every variant natively per architecture (no QEMU) and push by digest only.
   build:
@@ -70,11 +78,14 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
+      - name: Pin base images
+        env:
+          BASES: ${{ needs.prepare.outputs.bases }}
+        run: echo "$BASES" | tee -a "$GITHUB_ENV"
+
       - name: Build and push by digest
         env:
           VERSION: ${{ needs.prepare.outputs.version }}
-          PHP83_BASE: ${{ needs.prepare.outputs.php83_base }}
-          PHP84_BASE: ${{ needs.prepare.outputs.php84_base }}
           PLATFORMS: linux/${{ matrix.arch }}
         run: |
           docker buildx bake \
